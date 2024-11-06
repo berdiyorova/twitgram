@@ -5,9 +5,10 @@ from django.contrib.auth import authenticate
 from django.core.mail import send_mail
 from rest_framework import generics, status
 from rest_framework.exceptions import ValidationError
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.viewsets import ModelViewSet
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from Config.settings import EMAIL_HOST_USER
@@ -125,3 +126,12 @@ class UserProfile(generics.RetrieveUpdateAPIView):
 
     def get_object(self):
         return self.request.user
+
+
+class UserViewSet(ModelViewSet):
+    queryset = UserModel.objects.all()
+    serializer_class = UserSerializer
+    permission_classes = [IsAdminUser,]
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
