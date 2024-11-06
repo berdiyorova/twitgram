@@ -12,7 +12,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from Config.settings import EMAIL_HOST_USER
 from users.models import UserModel
-from users.serializers import RegisterSerializer, LoginSerializer
+from users.serializers import RegisterSerializer, LoginSerializer, UserSerializer
 
 
 class RegisterView(generics.CreateAPIView):
@@ -66,6 +66,8 @@ class ResendVerifyView(APIView):
     def post(self, *args, **kwargs):
         email = self.request.data.get('email')
         user = UserModel.objects.get(email=email)
+        self.check_verification(user=user)
+
         code = user.create_verify_code()
         subject = "Welcome to TwitGram!"
         message = f"Hi, {user.username}, Your verification code is: {code}."
@@ -76,9 +78,18 @@ class ResendVerifyView(APIView):
         return Response(
             data={
                 'success': True,
-                'message': 'Your email has been verified.'
+                'message': 'Your verification code has been resent.'
             }, status=status.HTTP_200_OK
         )
+
+    @staticmethod
+    def check_verification(user):
+        verifies = user.verify_codes.filter(expiration_time__gte=datetime.now(), is_confirmed=False)
+        if verifies.exists():
+            data = {
+                "message": "Your code is still usable. Wait a moment."
+            }
+            raise ValidationError(data)
 
 
 class LoginView(APIView):
@@ -88,10 +99,10 @@ class LoginView(APIView):
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        username = serializer.validated_data['username']
+        email_or_username = serializer.validated_data['email_or_username']
         password = serializer.validated_data['password']
 
-        user = authenticate(username=username, password=password)
+        user = authenticate(username=email_or_username, password=password)
         if user is not None:
             refresh = RefreshToken.for_user(user)
 
@@ -105,3 +116,12 @@ class LoginView(APIView):
             'success': False,
             'message': 'Invalid credentials'
         }, status=status.HTTP_400_BAD_REQUEST)
+
+
+class UserProfile(generics.RetrieveUpdateAPIView):
+    serializer_class = UserSerializer
+    permission_classes = [IsAuthenticated,]
+    http_method_names = ['get', 'put', 'patch']
+
+    def get_object(self):
+        return self.request.user

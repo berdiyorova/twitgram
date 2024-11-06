@@ -1,8 +1,9 @@
 import re
 
 from django.contrib.auth.password_validation import validate_password
+from django.db.models import Q
 from rest_framework import serializers
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import ValidationError, NotFound
 from rest_framework.validators import UniqueValidator
 
 from users.models import UserModel
@@ -55,5 +56,33 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 
 class LoginSerializer(serializers.Serializer):
-    username = serializers.CharField(max_length=255)
-    password = serializers.CharField(max_length=255)
+    email_or_username = serializers.CharField(write_only=True)
+    password = serializers.CharField(write_only=True)
+
+    def validate(self, attrs):
+        email_or_username = attrs.get('email_or_username', None)
+        if email_or_username is None:
+            raise ValidationError(
+                {
+                    "success": False,
+                    'message': "Email or username must be entered."
+                }
+            )
+        if not UserModel.objects.filter(Q(username=email_or_username) | Q(email=email_or_username)).exists():
+            raise NotFound(detail="User not found")
+        return attrs
+
+
+class UserSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(read_only=True)
+
+    class Meta:
+        model = UserModel
+        fields = ('first_name', 'last_name', 'username', 'email', 'password')
+
+    def update(self, instance, validated_data):
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        instance.save()
+        return instance

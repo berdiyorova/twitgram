@@ -3,7 +3,7 @@ from django.db import models
 from users.models import UserModel
 
 
-class Note(models.Model):
+class NoteModel(models.Model):
     text = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
 

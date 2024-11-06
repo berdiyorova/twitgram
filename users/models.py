@@ -10,6 +10,9 @@ from users.validators import GmailValidator
 class UserModel(AbstractUser):
     email = models.EmailField(unique=True, validators=[GmailValidator])
 
+    USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = ['username']
+
     def __str__(self):
         return self.username
 
